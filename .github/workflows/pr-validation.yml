@@ -61,3 +61,19 @@ jobs:
             --target-org prod \
             --test-level RunLocalTests \
             --wait 100
+            - name: Validate Deployment
+        run: |
+          sf project deploy validate \
+            --manifest delta/package/package.xml \
+            --target-org prod \
+            --test-level RunLocalTests \
+            --wait 100
+
+      - name: Deploy to Production
+        if: success()
+        run: |
+          sf project deploy start \
+            --manifest delta/package/package.xml \
+            --target-org prod \
+            --test-level RunLocalTests \
+            --wait 100
