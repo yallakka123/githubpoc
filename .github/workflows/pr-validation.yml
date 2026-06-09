@@ -19,7 +19,7 @@ jobs:
           token: ${{ secrets.PUCT_PAT }}
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -48,20 +48,13 @@ jobs:
             --to "HEAD" \
             --from "HEAD~1" \
             --output-dir delta \
-            --source-dir force-app/main/default
+            --source-dir force-app
 
       - name: Show package.xml
         run: |
           cat delta/package/package.xml
 
       - name: Validate Deployment
-        run: |
-          sf project deploy validate \
-            --manifest delta/package/package.xml \
-            --target-org prod \
-            --test-level RunLocalTests \
-            --wait 100
-            - name: Validate Deployment
         run: |
           sf project deploy validate \
             --manifest delta/package/package.xml \
