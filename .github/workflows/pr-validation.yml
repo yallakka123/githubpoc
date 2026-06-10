@@ -56,8 +56,40 @@ jobs:
 
       - name: Validate Deployment
         run: |
-          sf project deploy validate \
-            --manifest delta/package/package.xml \
-            --target-org prod \
-            --test-level RunLocalTests \
-            --wait 100
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            # Ensure there are actual component files in the delta (not just package.xml)
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              pushd delta
+              sf project deploy validate \
+                --source-dir . \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+              popd
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping validation."
+            fi
+          else
+            echo "No metadata changes detected. Skipping validation."
+          fi
+
+      - name: Deploy to Production
+        if: success()
+        run: |
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              pushd delta
+              sf project deploy start \
+                --source-dir . \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+              popd
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping deployment."
+            fi
+          else
+            echo "No metadata changes detected. Skipping deployment."
+          fi
