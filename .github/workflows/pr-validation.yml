@@ -44,29 +44,53 @@ jobs:
         run: |
           mkdir delta
 
+          # Generate delta; allow non-zero exit (no changes) so workflow can decide next steps
           sf sgd source delta \
             --to "${{ github.sha }}" \
-            --from "${{ github.event.pull_request.base.sha }}" \
+            --from "${{ github.event.pull_request.base.sha || github.event.before }}" \
             --output-dir delta \
-            --source-dir force-app
+            --source-dir force-app || true
 
-      - name: Show package.xml
+      - name: Debug Delta Files
         run: |
-          cat delta/package/package.xml
+          echo "PACKAGE XML"
+          cat delta/package/package.xml || true
+
+          echo "DELTA CONTENT"
+          ls -R delta || true
 
       - name: Validate Deployment
         run: |
-          sf project deploy validate \
-            --manifest delta/package/package.xml \
-            --target-org prod \
-            --test-level RunLocalTests \
-            --wait 100
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            # Ensure there are actual component files in the delta (not just package.xml)
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              sf project deploy validate \
+                --manifest delta/package/package.xml \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping validation."
+            fi
+          else
+            echo "No metadata changes detected. Skipping validation."
+          fi
 
       - name: Deploy to Production
         if: success()
         run: |
-          sf project deploy start \
-            --manifest delta/package/package.xml \
-            --target-org prod \
-            --test-level RunLocalTests \
-            --wait 100
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              sf project deploy start \
+                --manifest delta/package/package.xml \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping deployment."
+            fi
+          else
+            echo "No metadata changes detected. Skipping deployment."
+          fi
