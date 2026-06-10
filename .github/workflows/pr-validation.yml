@@ -69,12 +69,13 @@ jobs:
             # Ensure there are actual component files in the delta (not just package.xml)
             FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
             if [ "$FILE_COUNT" -gt 0 ]; then
+              pushd delta
               sf project deploy validate \
-                --manifest delta/package/package.xml \
-                --source-dir delta \
+                --manifest package/package.xml \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
+              popd
             else
               echo "Package.xml contains types but no source-backed components present. Skipping validation."
             fi
@@ -88,12 +89,13 @@ jobs:
           if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
             FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
             if [ "$FILE_COUNT" -gt 0 ]; then
+              pushd delta
               sf project deploy start \
-                --manifest delta/package/package.xml \
-                --source-dir delta \
+                --manifest package/package.xml \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
+              popd
             else
               echo "Package.xml contains types but no source-backed components present. Skipping deployment."
             fi
