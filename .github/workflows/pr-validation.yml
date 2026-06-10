@@ -71,6 +71,7 @@ jobs:
             if [ "$FILE_COUNT" -gt 0 ]; then
               sf project deploy validate \
                 --manifest delta/package/package.xml \
+                --source-dir delta \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
@@ -89,6 +90,7 @@ jobs:
             if [ "$FILE_COUNT" -gt 0 ]; then
               sf project deploy start \
                 --manifest delta/package/package.xml \
+                --source-dir delta \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
