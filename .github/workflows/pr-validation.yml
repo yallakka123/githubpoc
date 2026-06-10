@@ -1,0 +1,100 @@
+name: Salesforce PR Validation
+
+on:
+  pull_request:
+    branches:
+      - INT
+    types: [opened, synchronize, reopened]
+
+  push:
+    branches:
+      - INT
+
+jobs:
+  validate-deployment:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PUCT_PAT }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Salesforce CLI
+        run: |
+          npm install @salesforce/cli --global
+          sf --version
+
+      - name: Install Delta Plugin
+        run: |
+          echo y | sf plugins install sfdx-git-delta
+
+      - name: Authenticate PROD Org
+        run: |
+          echo "${{ secrets.PROD_AUTHURL }}" > auth.txt
+          sf org login sfdx-url \
+            --sfdx-url-file auth.txt \
+            --alias prod
+
+      - name: Generate Delta Package
+        run: |
+          mkdir delta
+
+          # Generate delta; allow non-zero exit (no changes) so workflow can decide next steps
+          sf sgd source delta \
+            --to "${{ github.sha }}" \
+            --from "${{ github.event.pull_request.base.sha || github.event.before }}" \
+            --output-dir delta \
+            --source-dir force-app || true
+
+      - name: Debug Delta Files
+        run: |
+          echo "PACKAGE XML"
+          cat delta/package/package.xml || true
+
+          echo "DELTA CONTENT"
+          ls -R delta || true
+
+      - name: Validate Deployment
+        run: |
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            # Ensure there are actual component files in the delta (not just package.xml)
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              sf project deploy validate \
+                --manifest delta/package/package.xml \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping validation."
+            fi
+          else
+            echo "No metadata changes detected. Skipping validation."
+          fi
+
+      - name: Deploy to Production
+        if: success()
+        run: |
+          if [ -f delta/package/package.xml ] && grep -q "<types>" delta/package/package.xml; then
+            FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
+            if [ "$FILE_COUNT" -gt 0 ]; then
+              sf project deploy start \
+                --manifest delta/package/package.xml \
+                --target-org prod \
+                --test-level RunLocalTests \
+                --wait 100
+            else
+              echo "Package.xml contains types but no source-backed components present. Skipping deployment."
+            fi
+          else
+            echo "No metadata changes detected. Skipping deployment."
+          fi
