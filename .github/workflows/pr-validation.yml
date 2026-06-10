@@ -45,8 +45,8 @@ jobs:
           mkdir delta
 
           sf sgd source delta \
-            --to "HEAD" \
-            --from "HEAD~1" \
+            --to "${{ github.sha }}" \
+            --from "${{ github.event.pull_request.base.sha }}" \
             --output-dir delta \
             --source-dir force-app
 
