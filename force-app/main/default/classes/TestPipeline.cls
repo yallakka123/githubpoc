@@ -1,7 +1,6 @@
 public class TestPipeline {
 
     public static String getMessage() {
-        return 'Feature 56 Change';
-        // retrigger pipeline sooooo
+        return 'Pipeline Working';
     }
 }
