@@ -42,13 +42,19 @@ jobs:
 
       - name: Generate Delta Package
         run: |
-          mkdir delta
+          mkdir -p delta
+
+          FROM_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
+          TO_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+
+          echo "PR base sha: $FROM_SHA"
+          echo "PR head sha:  $TO_SHA"
 
           sf sgd source delta \
-            --to "HEAD" \
-            --from "HEAD~1" \
+            --to "$TO_SHA" \
+            --from "$FROM_SHA" \
             --output-dir delta \
-            --source-dir force-app/main/default
+            --source-dir force-app
 
       - name: Show package.xml
         run: |
@@ -61,7 +67,7 @@ jobs:
             FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
             if [ "$FILE_COUNT" -gt 0 ]; then
               sf project deploy validate \
-                --manifest delta/package/package.xml \
+                --source-dir delta \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
@@ -79,7 +85,7 @@ jobs:
             FILE_COUNT=$(find delta -type f ! -path "delta/package/package.xml" | wc -l)
             if [ "$FILE_COUNT" -gt 0 ]; then
               sf project deploy start \
-                --manifest delta/package/package.xml \
+                --source-dir delta \
                 --target-org prod \
                 --test-level RunLocalTests \
                 --wait 100
