@@ -6,6 +6,10 @@ on:
       - INT
     types: [opened, synchronize, reopened]
 
+  push:
+    branches:
+      - INT
+
 jobs:
   validate-deployment:
     runs-on: ubuntu-latest
